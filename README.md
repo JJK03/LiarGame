@@ -1,2 +1,2 @@
 # Liar-Game
-# test 
+# test init
