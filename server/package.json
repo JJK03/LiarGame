@@ -1,10 +1,10 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "main": "src/tcpServer.js",
+  "main": "src/httpServer.js",
   "scripts": {
-    "start": "node src/tcpServer.js",
-    "dev": "nodemon src/tcpServer.js",
+    "start": "node src/httpServer.js",
+    "dev": "nodemon src/httpServer.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

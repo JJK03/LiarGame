@@ -1,4 +1,3 @@
-
 const express = require('express');
 const { pool, testConnection } = require('./db');
 const cors = require('cors');
