@@ -10,7 +10,7 @@ app.use(express.json());
 
 // 루트 라우트 (메인 페이지 안내)
 app.get('/', (req, res) => {
-    res.send('라이어게임 서버가 실행 중입니다!');
+    res.send('라이어게임 서버 실행 중');
 });
 
 // 기본 라우트
@@ -23,7 +23,7 @@ app.get('/db-test', async (req, res) => {
         res.json({ 
             ok: true, 
             result: result[0].result,
-            message: 'DB 연결 성공!'
+            message: 'DB 연결 성공'
         });
     } catch (err) {
         res.status(500).json({ 
