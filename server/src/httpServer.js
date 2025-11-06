@@ -44,46 +44,146 @@ const io = new Server(server, {
 
 // 서버에 접속한 플레이어 목록을 저장할 배열
 let players = [];
+// 게임 방 목록을 저장할 객체
+let rooms = {};
+let nextRoomId = 1; // 다음 방 ID를 위한 카운터
+// 게임에 사용할 단어 목록
+const wordList = ['사과', '바나나', '딸기', '오렌지', '포도', '수박', '파인애플', '멜론'];
 
 // socket.io 연결 및 이벤트 처리
 io.on('connection', (socket) => {
     console.log('새 클라이언트 연결:', socket.id);
 
-    // [신규] 'join' 이벤트 처리 (클라이언트가 닉네임과 함께 접속 요청)
     socket.on('join', (nickname) => {
         console.log(`${nickname} 님이 접속했습니다.`);
-
-        // 플레이어 정보 객체 생성
-        const newPlayer = {
-            id: socket.id, // 각 클라이언트를 구분하는 고유 ID
-            nickname: nickname
-        };
-
-        // players 배열에 새로운 플레이어 추가
+        const newPlayer = { id: socket.id, nickname: nickname, roomId: null };
         players.push(newPlayer);
-
-        // 모든 클라이언트에게 최신 플레이어 목록 전송
-        io.emit('updatePlayerList', players);
-    });
-
-    // 클라이언트에서 'chat' 이벤트를 보내면 전체에 전달
-    socket.on('chat', (msg) => {
-        console.log('채팅 메시지:', msg);
-        io.emit('chat', msg); // 모든 클라이언트에 메시지 전송
-    });
-
-    // [수정] 'disconnect' 이벤트 처리 (클라이언트 연결 해제)
-    socket.on('disconnect', () => {
-        // players 배열에서 연결이 끊긴 플레이어 찾기
-        const disconnectedPlayer = players.find(player => player.id === socket.id);
         
+        // 로비에 있는 모든 사람에게 최신 플레이어 목록 전송
+        io.emit('updatePlayerList', players.filter(p => p.roomId === null));
+        
+        // 새로 접속한 사람에게만 현재 방 목록 전송
+        socket.emit('updateRoomList', Object.values(rooms).map(r => ({ id: r.id, name: r.name, playerCount: r.players.length, gameStarted: r.gameStarted })));
+    });
+
+    socket.on('createRoom', (roomName) => {
+        const roomId = nextRoomId++;
+        const player = players.find(p => p.id === socket.id);
+        if (player) {
+            player.roomId = roomId;
+            rooms[roomId] = {
+                id: roomId,
+                name: roomName,
+                players: [player],
+                gameStarted: false,
+                word: null,
+                liar: null
+            };
+            socket.join(roomId);
+            console.log(`${player.nickname} 님이 ${roomName} (ID: ${roomId}) 방을 생성했습니다.`);
+            socket.emit('roomInfo', rooms[roomId]);
+            io.emit('updateRoomList', Object.values(rooms).map(r => ({ id: r.id, name: r.name, playerCount: r.players.length, gameStarted: r.gameStarted })));
+            io.emit('updatePlayerList', players.filter(p => p.roomId === null));
+        }
+    });
+
+    socket.on('joinRoom', (roomId) => {
+        const room = rooms[roomId];
+        const player = players.find(p => p.id === socket.id);
+        if (room && player && !room.players.find(p => p.id === player.id)) {
+            if (room.gameStarted) {
+                socket.emit('error', '이미 게임이 시작된 방입니다.');
+                return;
+            }
+            player.roomId = roomId;
+            room.players.push(player);
+            socket.join(roomId);
+            console.log(`${player.nickname} 님이 ${room.name} (ID: ${roomId}) 방에 입장했습니다.`);
+            io.to(roomId).emit('roomInfo', room);
+            io.emit('updateRoomList', Object.values(rooms).map(r => ({ id: r.id, name: r.name, playerCount: r.players.length, gameStarted: r.gameStarted })));
+            io.emit('updatePlayerList', players.filter(p => p.roomId === null));
+        } else {
+            socket.emit('error', '방이 존재하지 않거나 입장할 수 없습니다.');
+        }
+    });
+
+    socket.on('startGame', (roomId) => {
+        const room = rooms[roomId];
+        if (!room) {
+            socket.emit('error', '방이 존재하지 않습니다.');
+            return;
+        }
+        if (room.gameStarted) {
+            socket.emit('error', '이미 게임이 시작되었습니다.');
+            return;
+        }
+        if (room.players.length < 3) {
+            socket.emit('error', '게임 시작에는 최소 3명 이상의 플레이어가 필요합니다.');
+            return;
+        }
+        if (wordList.length < 2) {
+            socket.emit('error', '게임에 필요한 단어가 부족합니다.');
+            return;
+        }
+
+        console.log(`방 ${room.name} (ID: ${roomId}) 게임 시작.`);
+        room.gameStarted = true;
+
+        // 1. 라이어 선택
+        const liarIndex = Math.floor(Math.random() * room.players.length);
+        const liar = room.players[liarIndex];
+        room.liar = liar.id;
+
+        // 2. 시민과 라이어의 제시어 선택 (서로 다른 단어)
+        const wordsCopy = [...wordList];
+        const citizenWordIndex = Math.floor(Math.random() * wordsCopy.length);
+        const citizenWord = wordsCopy.splice(citizenWordIndex, 1)[0]; // 단어 하나를 뽑아내고 배열에서 제거
+        
+        const liarWordIndex = Math.floor(Math.random() * wordsCopy.length);
+        const liarWord = wordsCopy[liarWordIndex];
+
+        room.word = citizenWord; // 시민 단어를 대표 단어로 저장
+
+        // 3. 각 플레이어에게 역할과 단어 전송
+        room.players.forEach(p => {
+            const playerSocket = io.sockets.sockets.get(p.id);
+            if (playerSocket) {
+                if (p.id === liar.id) {
+                    // 라이어에게는 다른 단어 전송
+                    playerSocket.emit('gameStart', { role: 'liar', word: liarWord });
+                } else {
+                    // 시민에게는 같은 단어 전송
+                    playerSocket.emit('gameStart', { role: 'citizen', word: citizenWord });
+                }
+            }
+        });
+        io.emit('updateRoomList', Object.values(rooms).map(r => ({ id: r.id, name: r.name, playerCount: r.players.length, gameStarted: r.gameStarted })));
+    });
+
+    socket.on('chat', (msg) => {
+        const player = players.find(p => p.id === socket.id);
+        if (player && player.roomId) {
+            io.to(player.roomId).emit('chat', msg);
+        }
+    });
+
+    socket.on('disconnect', () => {
+        const disconnectedPlayer = players.find(player => player.id === socket.id);
         if (disconnectedPlayer) {
             console.log(`${disconnectedPlayer.nickname} 님이 나갔습니다.`);
-            // 해당 플레이어를 제외한 새로운 배열 생성
+            if (disconnectedPlayer.roomId && rooms[disconnectedPlayer.roomId]) {
+                const room = rooms[disconnectedPlayer.roomId];
+                room.players = room.players.filter(p => p.id !== disconnectedPlayer.id);
+                if (room.players.length === 0) {
+                    delete rooms[disconnectedPlayer.roomId];
+                    console.log(`방 ${room.name} (ID: ${room.id})이 비어서 삭제되었습니다.`);
+                } else {
+                    io.to(room.id).emit('roomInfo', room);
+                }
+                io.emit('updateRoomList', Object.values(rooms).map(r => ({ id: r.id, name: r.name, playerCount: r.players.length, gameStarted: r.gameStarted })));
+            }
             players = players.filter(player => player.id !== socket.id);
-            
-            // 모든 클라이언트에게 최신 플레이어 목록 전송
-            io.emit('updatePlayerList', players);
+            io.emit('updatePlayerList', players.filter(p => p.roomId === null));
         } else {
             console.log('클라이언트 연결 해제 (닉네임 없음):', socket.id);
         }
