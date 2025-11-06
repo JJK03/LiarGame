@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { socket } from './App';
+import { socket } from './socket';
 import './styles.css';
 
 function Game() {
@@ -21,6 +21,10 @@ function Game() {
     socket.on('chat', (msg) => {
       setMessages((prev) => [...prev, msg]);
     });
+    // [신규] 서버에서 플레이어 목록 업데이트 이벤트를 받으면 상태 업데이트
+    socket.on('updatePlayerList', (updatedPlayers) => {
+      setPlayers(updatedPlayers);
+    });
     socket.on('roomInfo', (info) => {
       setPlayers(info.players);
       setRoom(info.id);
@@ -37,6 +41,8 @@ function Game() {
     });
     return () => {
       socket.off('chat');
+      // [신규] 컴포넌트 언마운트 시 'updatePlayerList' 이벤트 리스너 해제
+      socket.off('updatePlayerList');
       socket.off('roomInfo');
       socket.off('gameStart');
       socket.off('voteResult');
@@ -142,7 +148,7 @@ function Game() {
     return (
       <div className="container">
         <div className="header">
-          <h2>라	이어 게임</h2>
+          <h2>라이어 게임</h2>
           <div className="small">내 닉네임: <b>{nickname}</b></div>
         </div>
 

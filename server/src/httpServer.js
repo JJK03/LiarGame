@@ -42,9 +42,29 @@ const io = new Server(server, {
     }
 });
 
-// socket.io 이벤트 예시
+// 서버에 접속한 플레이어 목록을 저장할 배열
+let players = [];
+
+// socket.io 연결 및 이벤트 처리
 io.on('connection', (socket) => {
     console.log('새 클라이언트 연결:', socket.id);
+
+    // [신규] 'join' 이벤트 처리 (클라이언트가 닉네임과 함께 접속 요청)
+    socket.on('join', (nickname) => {
+        console.log(`${nickname} 님이 접속했습니다.`);
+
+        // 플레이어 정보 객체 생성
+        const newPlayer = {
+            id: socket.id, // 각 클라이언트를 구분하는 고유 ID
+            nickname: nickname
+        };
+
+        // players 배열에 새로운 플레이어 추가
+        players.push(newPlayer);
+
+        // 모든 클라이언트에게 최신 플레이어 목록 전송
+        io.emit('updatePlayerList', players);
+    });
 
     // 클라이언트에서 'chat' 이벤트를 보내면 전체에 전달
     socket.on('chat', (msg) => {
@@ -52,8 +72,21 @@ io.on('connection', (socket) => {
         io.emit('chat', msg); // 모든 클라이언트에 메시지 전송
     });
 
+    // [수정] 'disconnect' 이벤트 처리 (클라이언트 연결 해제)
     socket.on('disconnect', () => {
-        console.log('클라이언트 연결 해제:', socket.id);
+        // players 배열에서 연결이 끊긴 플레이어 찾기
+        const disconnectedPlayer = players.find(player => player.id === socket.id);
+        
+        if (disconnectedPlayer) {
+            console.log(`${disconnectedPlayer.nickname} 님이 나갔습니다.`);
+            // 해당 플레이어를 제외한 새로운 배열 생성
+            players = players.filter(player => player.id !== socket.id);
+            
+            // 모든 클라이언트에게 최신 플레이어 목록 전송
+            io.emit('updatePlayerList', players);
+        } else {
+            console.log('클라이언트 연결 해제 (닉네임 없음):', socket.id);
+        }
     });
 });
 
