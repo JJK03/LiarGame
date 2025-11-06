@@ -1,3 +1,5 @@
+// TODO: 방장 외에 게임시작 버튼 없애기, 한 번씩 발언하고 애매하면 한 번씩 더 발언하게 하기(라운드제?)
+
 const express = require('express');
 const { pool, testConnection } = require('./db');
 const cors = require('cors');
@@ -77,7 +79,11 @@ io.on('connection', (socket) => {
                 players: [player],
                 gameStarted: false,
                 word: null,
-                liar: null
+                liar: null,
+                votes: {}, // 투표 기록 객체 추가
+                host: player.id, // 방장 ID 저장
+                turnOrder: [],
+                currentPlayerIndex: 0
             };
             socket.join(roomId);
             console.log(`${player.nickname} 님이 ${roomName} (ID: ${roomId}) 방을 생성했습니다.`);
@@ -128,6 +134,9 @@ io.on('connection', (socket) => {
 
         console.log(`방 ${room.name} (ID: ${roomId}) 게임 시작.`);
         room.gameStarted = true;
+        room.votes = {}; // 투표 기록 초기화
+        room.turnOrder = [...room.players].sort(() => Math.random() - 0.5).map(p => p.id);
+        room.currentPlayerIndex = 0;
 
         // 1. 라이어 선택
         const liarIndex = Math.floor(Math.random() * room.players.length);
@@ -158,12 +167,101 @@ io.on('connection', (socket) => {
             }
         });
         io.emit('updateRoomList', Object.values(rooms).map(r => ({ id: r.id, name: r.name, playerCount: r.players.length, gameStarted: r.gameStarted })));
-    });
+
+        // 첫 번째 턴 시작
+        const firstPlayerId = room.turnOrder[room.currentPlayerIndex];
+        const firstPlayer = room.players.find(p => p.id === firstPlayerId);
+        io.to(roomId).emit('nextTurn', {
+            turn: room.currentPlayerIndex + 1,
+            totalTurns: room.players.length,
+            currentPlayer: {
+                id: firstPlayer.id,
+                nickname: firstPlayer.nickname
+            }
+        });
+    }); // <-- 누락된 닫기 괄호/세미콜론을 여기서 닫음
 
     socket.on('chat', (msg) => {
         const player = players.find(p => p.id === socket.id);
         if (player && player.roomId) {
             io.to(player.roomId).emit('chat', msg);
+        }
+    });
+
+    socket.on('submitTurn', ({ roomId, message }) => {
+        const room = rooms[roomId];
+        if (!room || !room.gameStarted) return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (player && room.turnOrder[room.currentPlayerIndex] === player.id) {
+            // 현재 턴의 플레이어가 맞는지 확인
+            io.to(roomId).emit('chat', { nickname: player.nickname, message });
+
+            room.currentPlayerIndex++;
+
+            if (room.currentPlayerIndex >= room.players.length) {
+                // 모든 플레이어가 턴을 마침 -> 투표 시작
+                io.to(roomId).emit('startVoting');
+            } else {
+                // 다음 턴 진행
+                const nextPlayerId = room.turnOrder[room.currentPlayerIndex];
+                const nextPlayer = room.players.find(p => p.id === nextPlayerId);
+                io.to(roomId).emit('nextTurn', {
+                    turn: room.currentPlayerIndex + 1,
+                    totalTurns: room.players.length,
+                    currentPlayer: {
+                        id: nextPlayer.id,
+                        nickname: nextPlayer.nickname
+                    }
+                });
+            }
+        }
+    });
+
+    socket.on('vote', ({ roomId, target }) => {
+        const room = rooms[roomId];
+        const voter = room ? room.players.find(p => p.id === socket.id) : null;
+
+        if (room && voter && !room.votes[voter.id]) {
+            room.votes[voter.id] = target; // 투표 기록
+            console.log(`${voter.nickname}님이 ${target}님에게 투표했습니다.`);
+
+            // 모든 플레이어가 투표했는지 확인
+            const allVoted = room.players.every(p => room.votes[p.id]);
+            if (allVoted) {
+                const voteCounts = {};
+                for (const vote of Object.values(room.votes)) {
+                    voteCounts[vote] = (voteCounts[vote] || 0) + 1;
+                }
+
+                let maxVotes = 0;
+                let votedPlayerId = null;
+                for (const playerId in voteCounts) {
+                    if (voteCounts[playerId] > maxVotes) {
+                        maxVotes = voteCounts[playerId];
+                        votedPlayerId = playerId;
+                    }
+                }
+
+                let resultMessage = '';
+                const liarPlayer = players.find(p => p.id === room.liar);
+                const liarName = liarPlayer ? liarPlayer.nickname : 'Unknown';
+
+                if (votedPlayerId === room.liar) {
+                    resultMessage = `라이어를 찾아냈습니다! 승자는 시민입니다. (라이어: ${liarName})`;
+                } else {
+                    resultMessage = `라이어를 찾지 못했습니다. 승자는 라이어입니다. (라이어: ${liarName})`;
+                }
+                
+                io.to(roomId).emit('voteResult', resultMessage);
+                
+                // 게임 상태 초기화 또는 다음 라운드 준비
+                room.gameStarted = false;
+                room.liar = null;
+                room.word = null;
+                room.votes = {};
+                io.emit('updateRoomList', Object.values(rooms).map(r => ({ id: r.id, name: r.name, playerCount: r.players.length, gameStarted: r.gameStarted })));
+            }
         }
     });
 

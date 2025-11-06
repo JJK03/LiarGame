@@ -17,6 +17,10 @@ function Game() {
   const [voteTarget, setVoteTarget] = useState('');
   const [voteResult, setVoteResult] = useState('');
   const [error, setError] = useState(null);
+  const [showVoteConfirmation, setShowVoteConfirmation] = useState(false);
+  const [turnInfo, setTurnInfo] = useState(null);
+  const [isMyTurn, setIsMyTurn] = useState(false);
+  const [showVoting, setShowVoting] = useState(false);
 
   // 소켓 이벤트 등록
   useEffect(() => {
@@ -36,7 +40,7 @@ function Game() {
     });
 
     socket.on('chat', (msg) => {
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => [...prev, `${msg.nickname}: ${msg.message}`]);
     });
 
     socket.on('gameStart', ({ word, role }) => {
@@ -44,6 +48,19 @@ function Game() {
       setWord(word);
       setRole(role);
       setStep('game');
+      setMessages([]); // 게임 시작 시 메시지 초기화
+      setShowVoting(false); // 게임 시작 시 투표 UI 숨김
+    });
+
+    socket.on('nextTurn', (data) => {
+      setTurnInfo(data);
+      setIsMyTurn(data.currentPlayer.id === socket.id);
+      setShowVoting(false); // 새로운 턴이 시작되면 투표 UI 숨김
+    });
+
+    socket.on('startVoting', () => {
+      setShowVoting(true);
+      setTurnInfo(null); // 턴 정보 초기화
     });
 
     socket.on('voteResult', (result) => {
@@ -64,6 +81,8 @@ function Game() {
       socket.off('gameStart');
       socket.off('voteResult');
       socket.off('error');
+      socket.off('nextTurn');
+      socket.off('startVoting');
     };
   }, []);
 
@@ -85,16 +104,24 @@ function Game() {
     socket.emit('joinRoom', roomId);
   };
 
-  const handleSendChat = (e) => {
+  const handleSendMessage = (e) => {
     e.preventDefault();
-    if (chat.trim()) {
-      socket.emit('chat', `${nickname}: ${chat}`);
+    if (chat.trim() && room) {
+      if (step === 'lobby') {
+        socket.emit('chat', { nickname, message: chat });
+      } else if (step === 'game' && isMyTurn) {
+        socket.emit('submitTurn', { roomId: room.id, message: chat });
+      }
       setChat('');
     }
   };
 
   const handleStartGame = () => {
     if (room) {
+      if (room.players.length < 3) {
+        alert('게임 시작에는 최소 3명 이상의 플레이어가 필요합니다.');
+        return;
+      }
       socket.emit('startGame', room.id);
     }
   };
@@ -102,6 +129,8 @@ function Game() {
   const handleVote = () => {
     if (voteTarget && room) {
       socket.emit('vote', { roomId: room.id, target: voteTarget });
+      setShowVoteConfirmation(true);
+      setTimeout(() => setShowVoteConfirmation(false), 2000); // 2초 후 메시지 숨김
     }
   };
 
@@ -134,12 +163,19 @@ function Game() {
           <div className="panel">
             <div className="left box">
               <strong>참가자 목록 ({room.players.length}명)</strong>
-              <div className="small">{room.players.map(p => p.nickname).join(', ')}</div>
+              <div className="small">
+                {room.players.map((p, index) => (
+                  <span key={p.id}>
+                    {p.nickname} {room.host === p.id && '(방장)'}
+                    {index < room.players.length - 1 ? ', ' : ''}
+                  </span>
+                ))}
+              </div>
               <div style={{ marginTop: 12 }}>
                 <button 
                   className="primaryBtn" 
-                  onClick={handleStartGame} 
-                  disabled={room.players.length < 3}
+                  onClick={handleStartGame}
+                  disabled={socket.id !== room.host}
                 >게임 시작</button>
                 {room.players.length < 3 && <div className="small-hint">3명 이상부터 시작할 수 있습니다.</div>}
               </div>
@@ -149,7 +185,7 @@ function Game() {
               <div className="chatWindow">
                 {messages.map((msg, idx) => <div key={idx} className="message">{msg}</div>)}
               </div>
-              <form onSubmit={handleSendChat} className="formRow">
+              <form onSubmit={handleSendMessage} className="formRow">
                 <input className="textInput" value={chat} onChange={e => setChat(e.target.value)} placeholder="메시지 입력..." />
                 <button className="primaryBtn" type="submit">전송</button>
               </form>
@@ -201,30 +237,43 @@ function Game() {
           <h2>라이어 게임</h2>
           <div className="small">내 닉네임: <b>{nickname}</b></div>
         </div>
+        {turnInfo && (
+          <div className="turn-info">
+            <h3>{turnInfo.turn}/{turnInfo.totalTurns} 번째 턴</h3>
+            <p>현재 차례: <strong>{turnInfo.currentPlayer.nickname}</strong></p>
+          </div>
+        )}
         <div className="panel">
           <div className="left box">
-            <div><strong>나의 제시어</strong></div>
+            <div><strong>나의 역할</strong>: {role}</div>
+            <div style={{ marginTop: 10 }}><strong>나의 제시어</strong></div>
             <div className="small" style={{ fontSize: 18, fontWeight: 'bold', marginTop: 4 }}>{word}</div>
-            <div style={{ marginTop: 16 }}>
-              <h4>투표</h4>
-              <select value={voteTarget} onChange={e => setVoteTarget(e.target.value)} className="textInput">
-                <option value="">--플레이어 선택--</option>
-                {room && room.players.map((p, idx) => <option key={idx} value={p.id}>{p.nickname}</option>)}
-              </select>
-              <div style={{ marginTop: 8 }}>
-                <button className="primaryBtn" onClick={handleVote}>투표</button>
+            {showVoting && (
+              <div style={{ marginTop: 16 }}>
+                <h4>라이어 투표</h4>
+                <p>모든 플레이어가 발언을 마쳤습니다. 라이어라고 생각되는 사람에게 투표하세요.</p>
+                <select value={voteTarget} onChange={e => setVoteTarget(e.target.value)} className="textInput">
+                  <option value="">--플레이어 선택--</option>
+                  {room && room.players.filter(p => p.id !== socket.id).map((p, idx) => <option key={idx} value={p.id}>{p.nickname}</option>)}
+                </select>
+                <div style={{ marginTop: 8 }}>
+                  <button className="primaryBtn" onClick={handleVote} disabled={!voteTarget}>투표하기</button>
+                </div>
+                {showVoteConfirmation && <div className="small-hint" style={{ marginTop: 10, color: 'green' }}>투표 완료!</div>}
               </div>
-            </div>
+            )}
           </div>
           <div className="right box">
-            <h4>채팅</h4>
+            <h4>진행 상황</h4>
             <div className="chatWindow">
               {messages.map((msg, idx) => <div key={idx} className="message">{msg}</div>)}
             </div>
-            <form onSubmit={handleSendChat} className="formRow">
-              <input className="textInput" value={chat} onChange={e => setChat(e.target.value)} placeholder="메시지 입력..." />
-              <button className="primaryBtn" type="submit">전송</button>
-            </form>
+            {isMyTurn && (
+              <form onSubmit={handleSendMessage} className="formRow">
+                <input className="textInput" value={chat} onChange={e => setChat(e.target.value)} placeholder="제시어에 대해 설명하세요..." />
+                <button className="primaryBtn" type="submit">제출</button>
+              </form>
+            )}
           </div>
         </div>
       </div>
