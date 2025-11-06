@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { io } from 'socket.io-client';
+import { socket } from './App';
 import './styles.css';
-
-const socket = io('http://localhost:3001');
 
 function Game() {
   // 상태 정의

@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import './styles.css';
 
-// 서버 주소 (포트는 서버와 맞춰주세요)
-const socket = io('http://localhost:3001');
+// 서버 주소
+export const socket = io('http://localhost:3001');
 
 function App() {
   const [messages, setMessages] = useState([]);

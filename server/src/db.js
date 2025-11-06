@@ -15,7 +15,7 @@ const pool = mysql.createPool({
 async function testConnection() {
     try {
         const connection = await pool.getConnection();
-        console.log('MySQL 연결 성공! ✨');
+        console.log('MySQL 연결 성공');
         connection.release();
         return true;
     } catch (err) {
