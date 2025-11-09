@@ -1,4 +1,4 @@
-// TODO: 방장 외에 게임시작 버튼 없애기, 한 번씩 발언하고 애매하면 한 번씩 더 발언하게 하기(라운드제?)
+// TODO: 라운드 늘리기
 
 const express = require('express');
 const { pool, testConnection } = require('./db');
@@ -248,9 +248,9 @@ io.on('connection', (socket) => {
                 const liarName = liarPlayer ? liarPlayer.nickname : 'Unknown';
 
                 if (votedPlayerId === room.liar) {
-                    resultMessage = `라이어를 찾아냈습니다! 승자는 시민입니다. (라이어: ${liarName})`;
+                    resultMessage = `라이어를 찾아냈습니다! 승자는 시민입니다.(라이어: ${liarName})`;
                 } else {
-                    resultMessage = `라이어를 찾지 못했습니다. 승자는 라이어입니다. (라이어: ${liarName})`;
+                    resultMessage = `라이어를 찾지 못했습니다. 승자는 라이어입니다.(라이어: ${liarName})`;
                 }
                 
                 io.to(roomId).emit('voteResult', resultMessage);
@@ -262,6 +262,39 @@ io.on('connection', (socket) => {
                 room.votes = {};
                 io.emit('updateRoomList', Object.values(rooms).map(r => ({ id: r.id, name: r.name, playerCount: r.players.length, gameStarted: r.gameStarted })));
             }
+        }
+    });
+
+    socket.on('leaveRoom', (roomId) => {
+        const player = players.find(p => p.id === socket.id);
+        const room = rooms[roomId];
+
+        if (player && room && room.players.some(p => p.id === socket.id)) {
+            console.log(`${player.nickname} 님이 ${room.name} (ID: ${roomId}) 방에서 나갔습니다.`);
+            
+            // 방에서 플레이어 제거
+            room.players = room.players.filter(p => p.id !== socket.id);
+            player.roomId = null;
+            socket.leave(roomId);
+            socket.emit('leftRoom');
+
+            if (room.players.length === 0) {
+                // 방이 비었으면 삭제
+                delete rooms[roomId];
+                console.log(`방 ${room.name} (ID: ${room.id})이 비어서 삭제되었습니다.`);
+            } else {
+                // 방장이 나갔으면 새로운 방장 지정
+                if (room.host === socket.id) {
+                    room.host = room.players[0].id;
+                    console.log(`새로운 방장: ${room.players[0].nickname}`);
+                }
+                // 방에 남은 사람들에게 업데이트된 정보 전송
+                io.to(roomId).emit('roomInfo', room);
+            }
+
+            // 전체 클라이언트에게 방 목록 및 로비 플레이어 목록 업데이트
+            io.emit('updateRoomList', Object.values(rooms).map(r => ({ id: r.id, name: r.name, playerCount: r.players.length, gameStarted: r.gameStarted })));
+            io.emit('updatePlayerList', players.filter(p => p.roomId === null));
         }
     });
 
