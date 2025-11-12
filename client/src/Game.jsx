@@ -21,6 +21,8 @@ function Game() {
   const [turnInfo, setTurnInfo] = useState(null);
   const [isMyTurn, setIsMyTurn] = useState(false);
   const [showVoting, setShowVoting] = useState(false);
+  const [showHostChoice, setShowHostChoice] = useState(false);
+  const [endedRound, setEndedRound] = useState(1);
 
   // 소켓 이벤트 등록
     useEffect(() => {
@@ -36,7 +38,7 @@ function Game() {
         setError(null); // 방에 들어가면 에러 초기화
         setRoom(roomData);
         setMessages([]);
-        setStep('lobby');
+        setStep((prevStep) => (prevStep === 'result' ? 'result' : 'lobby'));
       });
   
       socket.on('leftRoom', () => {
@@ -55,15 +57,24 @@ function Game() {
         setStep('game');
         setMessages([]); // 게임 시작 시 메시지 초기화
         setShowVoting(false); // 게임 시작 시 투표 UI 숨김
+        setShowHostChoice(false); // 게임 시작 시 방장 선택 UI 숨김
       });
   
       socket.on('nextTurn', (data) => {
+        setShowHostChoice(false); // 새로운 턴이 시작되면 방장 선택 UI 숨김
         setTurnInfo(data);
         setIsMyTurn(data.currentPlayer.id === socket.id);
         setShowVoting(false); // 새로운 턴이 시작되면 투표 UI 숨김
       });
+
+      socket.on('firstRoundEnd', ({ round }) => {
+        setTurnInfo(null); // 턴 정보 초기화
+        setEndedRound(round);
+        setShowHostChoice(true);
+      });
   
       socket.on('startVoting', () => {
+        setShowHostChoice(false);
         setShowVoting(true);
         setTurnInfo(null); // 턴 정보 초기화
       });
@@ -77,6 +88,11 @@ function Game() {
         setError(msg);
         setTimeout(() => setError(null), 5000);
       });
+
+      socket.on('gameTerminated', (message) => {
+        alert(message);
+        handleReturnToLobby();
+      });
   
       return () => {
         socket.off('updatePlayerList');
@@ -89,6 +105,8 @@ function Game() {
         socket.off('error');
         socket.off('nextTurn');
         socket.off('startVoting');
+        socket.off('firstRoundEnd');
+        socket.off('gameTerminated');
       };
     }, []);
   
@@ -136,6 +154,18 @@ function Game() {
           return;
         }
         socket.emit('startGame', room.id);
+      }
+    };
+
+    const handleRequestVoting = () => {
+      if (room) {
+        socket.emit('requestVoting', { roomId: room.id });
+      }
+    };
+
+    const handleRequestSecondRound = () => {
+      if (room) {
+        socket.emit('requestSecondRound', { roomId: room.id });
       }
     };
   
@@ -262,8 +292,24 @@ function Game() {
             </div>
             {turnInfo && (
               <div className="turn-info">
-                <h3>{turnInfo.turn}/{turnInfo.totalTurns} 번째 턴</h3>
+                <h3>{turnInfo.round} 라운드 {turnInfo.turn}/{turnInfo.totalTurns} 번째 턴</h3>
                 <p>현재 차례: <strong>{turnInfo.currentPlayer.nickname}</strong></p>
+              </div>
+            )}
+            {showHostChoice && (
+              <div className="turn-info">
+                <h4>{endedRound}차 발언 종료</h4>
+                {socket.id === room.host ? (
+                  <div>
+                    <p>투표를 시작하거나, 한 라운드 더 발언 기회를 가질 수 있습니다.</p>
+                    <div style={{ marginTop: 12, display: 'flex', gap: '8px' }}>
+                      <button className="primaryBtn" onClick={handleRequestVoting}>투표 시작하기</button>
+                      <button className="secondaryBtn" onClick={handleRequestSecondRound}>한 라운드 더하기</button>
+                    </div>
+                  </div>
+                ) : (
+                  <p>방장이 다음 행동을 선택하고 있습니다...</p>
+                )}
               </div>
             )}
             <div className="panel">
