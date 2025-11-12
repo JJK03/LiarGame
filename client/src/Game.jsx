@@ -313,7 +313,7 @@ function Game() {
               <h3 style={{ color: isCitizenWin ? 'var(--primary-color)' : 'var(--error-color)', fontSize: '1.5rem', marginBottom: '1rem' }}>
                 {isCitizenWin ? '시민 승리!' : '라이어 승리!'}
               </h3>
-              <p style={{ fontSize: '1.1rem' }}>{voteResult}</p>
+              <p style={{ fontSize: '1.1rem', whiteSpace: 'pre-wrap' }}>{voteResult}</p>
             </div>
             <div style={{ marginTop: '1.5rem' }}>
               <button className="primaryBtn" onClick={handleReturnToLobby}>방으로 돌아가기</button>
