@@ -4,9 +4,8 @@
  * 각 소켓의 개별 이벤트(예: 'join', 'createRoom' 등)를 처리합니다.
  */
 
-// 상태 관리 모듈과 단어 목록을 가져옵니다.
 const state = require('../game/state');
-const wordList = require('../game/wordList');
+const { getGameSetup } = require('../db');
 
 /**
  * 클라이언트로부터 받은 이벤트를 처리하는 핸들러들을 등록하는 함수입니다.
@@ -92,16 +91,23 @@ const registerEventHandlers = (io, socket) => {
      * 'startGame' 이벤트 핸들러
      * 방장이 게임 시작을 요청했을 때 호출됩니다.
      */
-    socket.on('startGame', (roomId) => {
+    socket.on('startGame', async (roomId) => {
         const room = state.getRoom(roomId);
         // 유효성 검사
         if (!room) return socket.emit('error', '방이 존재하지 않습니다.');
         if (room.host !== socket.id) return socket.emit('error', '방장만 게임을 시작할 수 있습니다.');
         if (room.gameStarted) return socket.emit('error', '이미 게임이 시작되었습니다.');
         if (room.players.length < 3) return socket.emit('error', '게임 시작에는 최소 3명 이상의 플레이어가 필요합니다.');
-        if (wordList.length < 2) return socket.emit('error', '게임에 필요한 단어가 부족합니다.');
 
-        console.log(`방 ${room.name} (ID: ${roomId}) 게임 시작.`);
+        // DB에서 게임 설정(카테고리, 단어 2개)을 가져옵니다.
+        const gameSetup = await getGameSetup();
+        if (!gameSetup) {
+            return socket.emit('error', '게임에 필요한 단어를 DB에서 가져오는 데 실패했습니다. 단어가 2개 이상 있는 카테고리가 있는지 확인해주세요.');
+        }
+        
+        const { category, citizenWord, liarWord } = gameSetup;
+
+        console.log(`방 ${room.name} (ID: ${roomId}) 게임 시작. 카테고리: ${category}`);
         
         // 게임 상태 초기화 및 설정
         room.gameStarted = true;
@@ -109,27 +115,23 @@ const registerEventHandlers = (io, socket) => {
         room.turnOrder = [...room.players].sort(() => Math.random() - 0.5).map(p => p.id);
         room.currentPlayerIndex = 0;
         room.round = 1;
+        room.word = citizenWord; // 시민 단어를 대표 단어로 저장
 
         // 1. 라이어 선택
         const liarIndex = Math.floor(Math.random() * room.players.length);
         const liar = room.players[liarIndex];
         room.liar = liar.id;
 
-        // 2. 시민과 라이어의 제시어 선택 (서로 다른 단어)
-        const wordsCopy = [...wordList];
-        const citizenWordIndex = Math.floor(Math.random() * wordsCopy.length);
-        const citizenWord = wordsCopy.splice(citizenWordIndex, 1)[0];
-        const liarWordIndex = Math.floor(Math.random() * wordsCopy.length);
-        const liarWord = wordsCopy[liarWordIndex];
-        room.word = citizenWord; // 시민 단어를 대표 단어로 저장
-
-        // 3. 각 플레이어에게 역할과 단어 전송
+        // 2. 각 플레이어에게 역할, 카테고리, 단어 전송
         room.players.forEach(p => {
             const playerSocket = io.sockets.sockets.get(p.id);
             if (playerSocket) {
-                const role = (p.id === liar.id) ? 'liar' : 'citizen';
-                const word = (p.id === liar.id) ? liarWord : citizenWord;
-                playerSocket.emit('gameStart', { role, word });
+                const isLiar = p.id === liar.id;
+                playerSocket.emit('gameStart', {
+                    role: isLiar ? 'liar' : 'citizen',
+                    category: category,
+                    word: isLiar ? liarWord : citizenWord,
+                });
             }
         });
 

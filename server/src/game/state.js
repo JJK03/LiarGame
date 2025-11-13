@@ -15,11 +15,11 @@ const players = [];
 const rooms = {};
 
 // 새로운 방이 생성될 때마다 1씩 증가하는 카운터
-// 고유한 방 ID를 부여하기 위해 사용됩니다.
+// 고유한 방 ID를 부여하기 위해 사용됩니다。
 let nextRoomId = 1;
 
 /**
- * 새로운 플레이어를 'players' 배열에 추가합니다.
+ * 새로운 플레이어를 'players' 배열에 추가합니다。
  * @param {object} player - 추가할 플레이어 객체 { id, nickname, roomId }
  */
 const addPlayer = (player) => {
