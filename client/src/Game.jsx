@@ -187,8 +187,10 @@ function Game() {
       };
     
       // --- 화면 렌더링 --- //
-    
-      if (step === 'nickname') {
+
+
+      //레거시코드
+      /*if (step === 'nickname') {
         return (
           <div className="container center">
             <h2>닉네임 입력</h2>
@@ -201,9 +203,136 @@ function Game() {
             </div>
           </div>
         );
-      }
-    
-      if (step === 'lobby') {
+      }*/
+
+
+
+    if (step === 'nickname') {
+        return (
+            <div
+                // 전체 화면(배경) – 가운데 정렬 기준은 여기 하나만 쓴다
+                style={{
+                    minHeight: '100vh',
+                    background: '#0D0D0F',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                }}
+            >
+                {/* 가운데 정렬되는 실제 컨텐츠 박스 */}
+                <div
+                    style={{
+                        width: '100%',
+                        maxWidth: '420px',       // 타이틀/카드/인풋 모두 이 폭 안에서만
+                        padding: '0 20px',
+                        boxSizing: 'border-box',
+                        textAlign: 'center',
+                        color: '#EEE',
+                    }}
+                >
+                    {/* 타이틀 */}
+                    <h1
+                        style={{
+                            fontSize: '2.6rem',
+                            margin: '0 0 32px',
+                            color: '#E74C3C',
+                            textShadow: '0 0 8px rgba(231,76,60,0.7)',
+                        }}
+                    >
+                         LIAR GAME
+                    </h1>
+
+                    {/* 에러메시지 */}
+                    {error && (
+                        <div
+                            style={{
+                                background: 'rgba(255,0,0,0.15)',
+                                padding: '10px',
+                                borderRadius: '6px',
+                                marginBottom: '15px',
+                                border: '1px solid rgba(255,0,0,0.4)',
+                                fontSize: '0.9rem',
+                            }}
+                        >
+                            {error}
+                        </div>
+                    )}
+
+                    {/* 카드 박스 */}
+                    <div
+                        style={{
+                            width: '100%',
+                            padding: '20px 20px 24px',
+                            borderRadius: '12px',
+                            background: 'rgba(255,255,255,0.04)',
+                            boxShadow: '0 0 18px rgba(0,0,0,0.7)',
+                            boxSizing: 'border-box',
+                        }}
+                    >
+                        <label
+                            style={{
+                                fontSize: '0.95rem',
+                                color: '#AAA',
+                                display: 'block',
+                                marginBottom: '6px',
+                            }}
+                        >
+                            닉네임 입력
+                        </label>
+
+                        {/* 인풋 */}
+                        <input
+                            className="textInput"
+                            value={nickname}
+                            onChange={e => setNickname(e.target.value)}
+                            placeholder="닉네임을 입력하세요"
+                            style={{
+                                width: '100%',
+                                padding: '14px',
+                                borderRadius: '8px',
+                                border: '1px solid #333',
+                                background: 'rgba(255,255,255,0.07)',
+                                color: '#EEE',
+                                fontSize: '1.05rem',
+                                outline: 'none',
+                                marginTop: '8px',
+                                marginBottom: '16px',
+                                boxSizing: 'border-box',   // 카드 폭 안에 딱 맞게
+                            }}
+                        />
+
+                        {/* 버튼 */}
+                        <button
+                            className="primaryBtn"
+                            onClick={handleEnter}
+                            style={{
+                                width: '100%',
+                                padding: '14px',
+                                fontSize: '1.05rem',
+                                borderRadius: '8px',
+                                background: '#3498DB',
+                                color: 'white',
+                                border: 'none',
+                                boxShadow: '0 0 12px rgba(0,0,0,0.8)',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            ▶ 로비 만들기
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+
+
+
+
+
+
+
+    if (step === 'lobby') {
         if (room) {
           return (
             <div className="container">
