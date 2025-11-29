@@ -110,6 +110,14 @@ function Game() {
         };
     }, []);
 
+    // 다크 모드 활성화 (body에 dark-mode 클래스 추가)
+    useEffect(() => {
+        document.body.classList.add('dark-mode');
+        return () => {
+            document.body.classList.remove('dark-mode');
+        };
+    }, []);
+
     const handleEnter = () => {
         if (nickname.trim()) {
             socket.emit('join', nickname);
@@ -186,16 +194,6 @@ function Game() {
     };
 
     // ---------------- 공통 디자인 스타일 (1차 화면 컨셉) ----------------
-    const pageStyle = {
-        minHeight: '100vh',
-        background: '#0D0D0F',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: '20px',
-        boxSizing: 'border-box',
-    };
-
     const centerColumnWrapper = {
         width: '100%',
         maxWidth: '420px',
@@ -307,17 +305,7 @@ function Game() {
 
     const verticalGap = { display: 'flex', flexDirection: 'column', gap: '12px' };
 
-    const chatWindowStyle = {
-        width: '100%',
-        height: '220px',
-        borderRadius: '8px',
-        border: '1px solid #333',
-        background: 'rgba(0,0,0,0.35)',
-        padding: '10px',
-        boxSizing: 'border-box',
-        overflowY: 'auto',
-        fontSize: '0.9rem',
-    };
+
 
     const smallText = { fontSize: '0.9rem', color: '#BBB' };
 
@@ -334,7 +322,7 @@ function Game() {
     //1차 화면 디자인 (완) - 닉네임 입력 화면
     if (step === 'nickname') {
         return (
-            <div style={pageStyle}>
+            <div className="page-container">
                 {/* 가운데 정렬되는 실제 컨텐츠 박스 */}
                 <div style={centerColumnWrapper}>
                     {/* 타이틀 */}
@@ -375,7 +363,7 @@ function Game() {
         // 방 내부 로비 화면 (방에 들어간 상태)
         if (room) {
             return (
-                <div style={pageStyle}>
+                <div className="page-container">
                     <div style={wideWrapper}>
                         <h1 style={titleStyle}>LIAR GAME</h1>
                         <div style={subTitleStyle}>
@@ -444,7 +432,7 @@ function Game() {
                                     <span>채팅</span>
                                     <span style={smallText}>방 참가자들과 대화하세요</span>
                                 </div>
-                                <div style={chatWindowStyle}>
+                                <div className="chatWindow">
                                     {messages.map((msg, idx) => (
                                         <div key={idx} className="message">
                                             {msg}
@@ -476,7 +464,7 @@ function Game() {
 
         // 방 만들기 전 디자인 - 메인 로비
         return (
-            <div style={pageStyle}>
+            <div className="page-container">
                 <div style={wideWrapper}>
                     <h1 style={titleStyle}>LIAR GAME</h1>
                     <div style={subTitleStyle}>
@@ -590,12 +578,11 @@ function Game() {
     // 방 내부 디자인 - 실제 게임 화면
     if (step === 'game') {
         return (
-            <div style={pageStyle}>
+            <div className="page-container">
                 <div style={wideWrapper}>
                     <h1 style={titleStyle}>LIAR GAME</h1>
                     <div style={subTitleStyle}>
-                        방 이름: <b>{room?.name}</b> · 내 닉네임: <b>{nickname}</b> · 역할:{' '}
-                        <b>{role || '비밀'}</b>
+                        방 이름: <b>{room?.name}</b> · 내 닉네임: <b>{nickname}</b>
                     </div>
 
                     {turnInfo && (
@@ -746,7 +733,7 @@ function Game() {
                   각 플레이어의 발언 및 시스템 메시지
                 </span>
                             </div>
-                            <div style={chatWindowStyle}>
+                            <div className="chatWindow">
                                 {messages.map((msg, idx) => (
                                     <div key={idx} className="message">
                                         {msg}
@@ -789,7 +776,7 @@ function Game() {
         const isCitizenWin = voteResult.includes('시민');
 
         return (
-            <div style={pageStyle}>
+            <div className="page-container">
                 <div style={centerColumnWrapper}>
                     <h1 style={titleStyle}>LIAR GAME</h1>
                     <div style={subTitleStyle}>게임 결과</div>

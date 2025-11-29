@@ -13,6 +13,30 @@
   --success-color: #2ecc71;
   --shadow-color: rgba(0, 0, 0, 0.05);
   --font-family: 'Inter', 'Noto Sans KR', sans-serif;
+
+  /* Dark Mode Variables */
+  --dark-background-color: #1a202c;
+  --dark-container-bg: #2d3748;
+  --dark-primary-color: #63b3ed;
+  --dark-primary-hover: #4299e1;
+  --dark-secondary-color: #a0aec0;
+  --dark-secondary-hover: #718096;
+  --dark-text-color: #edf2f7;
+  --dark-muted-text-color: #a0aec0;
+  --dark-border-color: #4a5568;
+  --dark-error-color: #fc8181;
+  --dark-success-color: #68d391;
+  --dark-shadow-color: rgba(0, 0, 0, 0.2);
+}
+
+.page-container {
+  min-height: 100vh;
+  background: #0D0D0F; /* This will be overridden by dark-mode body styles */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 body {
@@ -23,6 +47,99 @@ body {
   color: var(--text-color);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark Mode */
+body.dark-mode {
+  background-color: var(--dark-background-color);
+  color: var(--dark-text-color);
+}
+
+body.dark-mode .container {
+  background-color: var(--dark-container-bg);
+  box-shadow: 0 4px 12px var(--dark-shadow-color);
+  border-color: var(--dark-border-color); /* Added for consistency */
+}
+
+body.dark-mode .header {
+  border-bottom-color: var(--dark-border-color);
+}
+
+body.dark-mode .box {
+  background-color: var(--dark-container-bg); /* Use dark container background for boxes */
+  border-color: var(--dark-border-color);
+}
+
+body.dark-mode .primaryBtn {
+  background-color: var(--dark-primary-color);
+  border-color: var(--dark-primary-color);
+  color: #1a202c; /* Dark text for light primary button */
+}
+
+body.dark-mode .primaryBtn:hover {
+  background-color: var(--dark-primary-hover);
+  border-color: var(--dark-primary-hover);
+}
+
+body.dark-mode .secondaryBtn {
+  color: var(--dark-primary-color);
+  border-color: var(--dark-primary-color);
+}
+
+body.dark-mode .secondaryBtn:hover {
+  color: var(--dark-background-color); /* Dark text for hover */
+  background-color: var(--dark-primary-color);
+}
+
+body.dark-mode .textInput, body.dark-mode select.textInput {
+  color: var(--dark-text-color);
+  background-color: var(--dark-container-bg);
+  border-color: var(--dark-border-color);
+}
+
+body.dark-mode .textInput:focus {
+  border-color: var(--dark-primary-color);
+  box-shadow: 0 0 0 0.2rem rgba(99, 179, 237, 0.25); /* Dark mode appropriate shadow */
+}
+
+body.dark-mode .chatWindow {
+  background-color: var(--dark-container-bg);
+  border-color: var(--dark-border-color);
+}
+
+body.dark-mode .message {
+  background-color: var(--dark-background-color); /* Slightly darker than chatWindow background */
+  border: 1px solid var(--dark-border-color);
+  color: var(--dark-text-color); /* Light text for dark message background */
+}
+
+body.dark-mode .roomItem {
+  border-color: var(--dark-border-color);
+  background-color: var(--dark-container-bg);
+}
+
+body.dark-mode .roomItem:hover {
+  background-color: #4a5568; /* Slightly lighter than container for hover */
+}
+
+body.dark-mode .turn-info {
+  background-color: #4a5568;
+  border-color: #63b3ed;
+  color: var(--dark-text-color);
+}
+
+body.dark-mode .error-message {
+  color: var(--dark-error-color);
+  background-color: #4a5568; /* Dark mode error background */
+  border: 1px solid var(--dark-error-color);
+}
+
+body.dark-mode .small, body.dark-mode .small-hint {
+  color: var(--dark-muted-text-color);
+}
+
+body.dark-mode hr {
+  border-top-color: var(--dark-border-color);
 }
 
 /* Container & Layout */
